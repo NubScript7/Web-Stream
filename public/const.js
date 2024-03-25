@@ -6,14 +6,20 @@ if(!id){
 }else{
   localStorage.setItem('Stream-Constant-Identifier',id)
 }
+
+const viewEl = document.getElementById('viewers');
 const sInfo = document.getElementById('info');
 const videoEl = document.getElementById('videoEl');
 const imageEl = document.getElementById('animate_img');
 
 sInfo.textContent='permanent id: '+localStorage.getItem('Stream-Constant-Identifier');
 
+socket.on("update-views", viewCount => {
+  viewEl.textContent = `view count: ${viewCount}`
+})
+
 socket.emit('c-mode_recon',id)
-    
+
 navigator.mediaDevices.getUserMedia({ video: {facingMode: {exact: 'environment'}} })
 .then(stream => {
 

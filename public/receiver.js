@@ -1,4 +1,4 @@
-const lz = LZString;
+//const lz = LZString;
 const socket = io();
 const debugr = {
   _ping:  0,

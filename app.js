@@ -10,6 +10,7 @@ const subscribedIds = {};
 const peers = {};
 const constStream = {};
 const cModeSub = {};
+const watchingStreamers = {}
 
 app.set('view engine','ejs');
 app.use(express.json());
@@ -29,17 +30,12 @@ function generateId() {
 
 app.use('/public',express.static('public'))
 
-const availableLinks = [
-  "const",
-  "peer",
-  "receiver",
-  "spyd"
-]
+app.get("/receiver", (req,res) => {
+  res.render("receiver")
+})
 
-app.get("*",(req,res) => {
-  if(availableLinks.indexOf(req.params[0]))
-    console.log(true)
-  res.send("jd")
+app.get("/const", (req, res) => {
+  res.render("const")
 })
 
 io.on('connection',socket=>{
@@ -124,11 +120,13 @@ io.on('connection',socket=>{
   })
   
   socket.on('c-mode_recon',id=>{
+    socket.join(id)
     constStream[id]={
       cid: id,
       sid: socket.id,
       frame: '',
       ms: 0,
+      views: 0
     }
   })
   
@@ -145,6 +143,16 @@ io.on('connection',socket=>{
   })
   
   socket.on('req_c-stream',id=>{
+    if (!!constStream[id]) {
+      constStream[id].views += 1;
+      if (!watchingStreamers[socket.id]) {
+          watchingStreamers[socket.id] = [id]
+      } else {
+          if (watchingStreamers[socket.id].indexOf(id) !== '-1')
+            watchingStreamers[socket.id].push(id)
+      }
+      io.to(id).emit("update-views",constStream[id].views)
+    }
     cModeSub[socket.id]=id
   })
   
@@ -153,19 +161,29 @@ io.on('connection',socket=>{
 		if(socket.id in subscribedIds){
 			delete subscribedIds[socket.id]
 		}
+		if(watchingStreamers[socket.id] && watchingStreamers[socket.id].length >= 1) {
+		  watchingStreamers[socket.id].forEach(id => {
+		    console.log(id, constStream[id])
+		    if(!!constStream[id]) {
+		      constStream[id].views -= 1;
+		      io.to(id).emit("update-views", constStream[id].views)
+		    }
+		  })
+		}
+		
 
 
-		setTimeout(()=>{
 			Object.keys(peers).forEach(e=>{
 				if(e.sid === socket.id){
 					if(e.recon)return;
-					e.callee.sid!==''?
-					io.to(e.callee.sid).emit('peer-disconnect'):
-					false;
-					delete peers[e]
+		            setTimeout(()=>{
+				    	e.callee.sid!==''?
+					    io.to(e.callee.sid).emit('peer-disconnect'):
+			    		false;
+				    	delete peers[e]
+					},10000)
 				}
 			})
-		},10000)
 	})
 
 })
